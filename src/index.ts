@@ -2,13 +2,13 @@ import * as p5 from 'p5';
 import Shape, { ShapeConfig } from './Shape';
 
 let sketch = function (p: p5) {
-    const ROWS = 5;
-    const COLS = 5;
+    const ROWS = 7;
+    const COLS = 7;
     let mousePos: p5.Vector;
 
     let shapeConfig: ShapeConfig;
 
-    const shapes: Shape[] = [];
+    let shapes: Shape[] = [];
 
     p.setup = function () {
         p.createCanvas(700, 410);
@@ -32,6 +32,11 @@ let sketch = function (p: p5) {
 
     p.draw = function () {
         p.background(0);
+
+        // Shapes should avoid each other
+        shapes.forEach(s1 => {
+            shapes.filter(s2 => s2 !== s1).forEach(s2 => s1.flee(s2.position));
+        })
 
         shapes.forEach(s => s.update(mousePos));
         shapes.forEach(s => s.draw());
@@ -73,9 +78,28 @@ let sketch = function (p: p5) {
     // touches are done before changing values
     p.touchEnded = function () {
         if (p.touches.length == 0) {
+            shapes.forEach(s => s.mouseReleased());
+            let newShapes: Shape[] = [];
 
-            shapes.forEach(s => s.mouseReleased(shapes));
+            for (let s1 of shapes) {
+                let others = shapes
+                    .filter(s2 => s2 !== s1)
+                    .filter(s2 => s1.canMergeWith(s2))
+                    .filter((_, i) => i < 2); // Only first two
+
+                if (others.length === 2) {
+                    others.forEach(other => {
+                        other.merged = true;
+                    });
+                    let newShape: Shape = new Shape(p, shapeConfig, s1.position, s1.colour, s1.level + 1, s1.sides);
+                    newShapes.push(newShape);
+                    s1.merged = true;
+                }
+            }
+            newShapes.forEach(s => shapes.push(s));
+            shapes = shapes.filter(s => !s.merged);
         }
+
     }
 };
 
