@@ -1,6 +1,17 @@
 import * as p5 from 'p5';
 import Shape, { ShapeConfig } from './Shape';
 
+import './style.css'
+
+const COLOURS = ['red', 'green', 'blue', 'orange', 'yellow', 'indigo', 'violet']
+
+function getRandomColour() {
+    return COLOURS[Math.floor(COLOURS.length * Math.random())];
+}
+
+var w = window.innerWidth;
+var h = window.innerHeight;
+
 let sketch = function (p: p5) {
     const ROWS = 7;
     const COLS = 7;
@@ -11,7 +22,7 @@ let sketch = function (p: p5) {
     let shapes: Shape[] = [];
 
     p.setup = function () {
-        p.createCanvas(700, 410);
+        p.createCanvas(w, h);
 
         shapeConfig = {
             baseRotationSpeed: p.TWO_PI * 0.001,
@@ -24,7 +35,7 @@ let sketch = function (p: p5) {
                 const position = p.createVector((0.5 + r) * p.width / ROWS,
                     (0.5 + c) * p.height / COLS);
                 const sides = p.floor(p.random(3, 6));
-                const shape = new Shape(p, shapeConfig, position, 'red', 1, sides);
+                const shape = new Shape(p, shapeConfig, position, getRandomColour(), 1, sides);
                 shapes.push(shape);
             }
         }
@@ -78,10 +89,9 @@ let sketch = function (p: p5) {
     // touches are done before changing values
     p.touchEnded = function () {
         if (p.touches.length == 0) {
-            shapes.forEach(s => s.mouseReleased());
             let newShapes: Shape[] = [];
 
-            for (let s1 of shapes) {
+            shapes.filter(s1 => s1.grabbed).forEach(s1 => {
                 let others = shapes
                     .filter(s2 => s2 !== s1)
                     .filter(s2 => s1.canMergeWith(s2))
@@ -91,13 +101,15 @@ let sketch = function (p: p5) {
                     others.forEach(other => {
                         other.merged = true;
                     });
-                    let newShape: Shape = new Shape(p, shapeConfig, s1.position, s1.colour, s1.level + 1, s1.sides);
+                    let newShape: Shape = new Shape(p, shapeConfig, s1.position, getRandomColour(), s1.level + 1, s1.sides);
                     newShapes.push(newShape);
                     s1.merged = true;
                 }
-            }
+            });
             newShapes.forEach(s => shapes.push(s));
             shapes = shapes.filter(s => !s.merged);
+
+            shapes.forEach(s => s.mouseReleased());
         }
 
     }
