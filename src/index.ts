@@ -1,5 +1,5 @@
 import * as p5 from 'p5';
-import Shape, { ShapeConfig } from './Shape';
+import Shape from './Shape';
 
 import './style.css'
 
@@ -17,25 +17,34 @@ let sketch = function (p: p5) {
     const COLS = 7;
     let mousePos: p5.Vector;
 
-    let shapeConfig: ShapeConfig;
+    let baseRotationSpeed: number;
+    let nearMouseRotationSpeed: number;
+    let nearMouseRadius: number;
 
     let shapes: Shape[] = [];
 
     p.setup = function () {
         p.createCanvas(w, h);
 
-        shapeConfig = {
-            baseRotationSpeed: p.TWO_PI * 0.001,
-            nearMouseRotationSpeed: p.TWO_PI * 0.008,
-            nearMouseRadius: 50
-        }
+        baseRotationSpeed = p.TWO_PI * 0.001;
+        nearMouseRotationSpeed: p.TWO_PI * 0.008;
+        nearMouseRadius = 50;
 
         for (let r = 0; r < ROWS; r++) {
             for (let c = 0; c < COLS; c++) {
                 const position = p.createVector((0.5 + r) * p.width / ROWS,
                     (0.5 + c) * p.height / COLS);
                 const sides = p.floor(p.random(3, 6));
-                const shape = new Shape(p, shapeConfig, position, getRandomColour(), 1, sides);
+                const shape = new Shape({
+                    s: p,
+                    baseRotationSpeed,
+                    nearMouseRotationSpeed,
+                    nearMouseRadius,
+                    position,
+                    colour: getRandomColour(),
+                    level: 1,
+                    sides
+                });
                 shapes.push(shape);
             }
         }
@@ -49,7 +58,7 @@ let sketch = function (p: p5) {
             shapes.filter(s2 => s2 !== s1).forEach(s2 => s1.flee(s2.position));
         })
 
-        shapes.forEach(s => s.update(mousePos));
+        shapes.forEach(s => s.update(mousePos, shapes.filter(s2 => s2 !== s)));
         shapes.forEach(s => s.draw());
     };
 
@@ -89,25 +98,36 @@ let sketch = function (p: p5) {
     // touches are done before changing values
     p.touchEnded = function () {
         if (p.touches.length == 0) {
-            let newShapes: Shape[] = [];
-
-            shapes.filter(s1 => s1.grabbed).forEach(s1 => {
+            let shapeToMerge = shapes.find(s1 => s1.grabbed);
+            while (!!shapeToMerge) {
                 let others = shapes
-                    .filter(s2 => s2 !== s1)
-                    .filter(s2 => s1.canMergeWith(s2))
+                    .filter(s2 => s2 !== shapeToMerge)
+                    .filter(s2 => shapeToMerge.canMergeWith(s2))
                     .filter((_, i) => i < 2); // Only first two
 
                 if (others.length === 2) {
                     others.forEach(other => {
                         other.merged = true;
                     });
-                    let newShape: Shape = new Shape(p, shapeConfig, s1.position, getRandomColour(), s1.level + 1, s1.sides);
-                    newShapes.push(newShape);
-                    s1.merged = true;
+                    let newShape: Shape = new Shape({
+                        s: p,
+                        position: shapeToMerge.position,
+                        colour: getRandomColour(),
+                        level: shapeToMerge.level + 1,
+                        sides: shapeToMerge.sides,
+                        baseRotationSpeed,
+                        nearMouseRotationSpeed,
+                        nearMouseRadius
+                    });
+                    shapes.push(newShape);
+                    shapeToMerge.merged = true;
+                    shapeToMerge = newShape;
+                } else {
+                    shapeToMerge = undefined;
                 }
-            });
-            newShapes.forEach(s => shapes.push(s));
-            shapes = shapes.filter(s => !s.merged);
+
+                shapes = shapes.filter(s => !s.merged);
+            }
 
             shapes.forEach(s => s.mouseReleased());
         }
